@@ -3,7 +3,7 @@
 #define _cplusplus
 #include "bam.h"
 #include <list>
-
+#include<ostream>
 
 using namespace std;
 using google::sparse_hash_map;
@@ -51,9 +51,24 @@ void remove_singlets(list<pair_t *> *plist);
 	@counts returns the number of pairs used to calculate coverage
 	@length input for the length of the contig
 */
+
+class model_t{
+        public:
+        double *p;
+        double *E;
+        double *pI;
+        unsigned int *EI;
+        model_t(unsigned long size, unsigned long *insert_counts, unsigned long counts,ostream *logout);
+        ~model_t();
+};
+
+void calculate_transcript(list<pair_t *> *plist, list<pair_t *> *bad_plist, unsigned int target_len);
+
+
 //void calculate_fragment_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned int length);
 void calculate_fragment_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned long *fragment_hist , unsigned int length);
 
 void calculate_fragment_hist(list<pair_t *> *plist, unsigned long *fragment_hist, unsigned int length);
 void calculate_fragment_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned int length);
+void calculate_transcript(list<pair_t *> *plist, list<pair_t *> *bad_plist, unsigned int target_len,ostream *logout);
 
