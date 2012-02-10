@@ -62,7 +62,8 @@ int main(int argc, char *argv[])
 	                bam_fetch(tmp.in->x.bam, idx, j, tmp.beg, tmp.end, hash_list, fetch_func);
 			remove_singlets(hash_list->plist);
 			printf(">%s ", hin->target_name[j]);
-			calculate_transcript(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&dnull);
+			//calculate_transcript(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&dnull);
+			calculate_transcript_scan_stat(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&dnull);
 	        	char *seq;
 			int len;
         		seq = faidx_fetch_seq(fai, tmp.in->header->target_name[j], 0,  tmp.in->header->target_len[j] , &len);

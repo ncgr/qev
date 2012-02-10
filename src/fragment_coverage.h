@@ -71,4 +71,6 @@ void calculate_fragment_coverage(list<pair_t *> *plist, unsigned long *pcov, dou
 void calculate_fragment_hist(list<pair_t *> *plist, unsigned long *fragment_hist, unsigned int length);
 void calculate_fragment_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned int length);
 void calculate_transcript(list<pair_t *> *plist, list<pair_t *> *bad_plist, unsigned int target_len,ostream *logout);
+void calculate_transcript_scan_stat(list<pair_t *> *plist, list<pair_t *> *bad_plist, unsigned int target_len,ostream *logout);
+double r_scan_approximation(int k,double psi, double L);
 

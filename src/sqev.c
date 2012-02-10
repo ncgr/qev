@@ -21,6 +21,15 @@ typedef struct {
         samfile_t *in;
 } tmpstruct_t;
 
+/*for the time being writing code in this file, ideally a scan stat library will be created*/
+
+
+
+
+
+
+
+
 int main(int argc, char *argv[])
 {
         tmpstruct_t tmp;
