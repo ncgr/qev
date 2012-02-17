@@ -10,8 +10,8 @@
 #include <gsl/gsl_cdf.h>
 #include <gsl/gsl_randist.h>
 #include <math.h>
-#include "multinomial.h"
 #include <ostream>
+
 
 hash_list_t::hash_list_t(){
         plist = new list<pair_t *>();
@@ -160,6 +160,40 @@ void calculate_fragment_coverage(list<pair_t *> *plist, unsigned long *pcov, dou
         }
 
 }
+void calculate_mid_pt_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned long *fragment_hist , unsigned int length){
+
+        pair_t *pair=NULL;
+
+        //process contig calculating paired insert coverage.
+        memset(pcov,0,sizeof(long)*length);
+        *mean_insert=0.0;
+        *counts=0;
+        //calculate coverage, and mean insert length.
+        for(  list<pair_t *>::iterator i=plist->begin(); i != plist->end(); ++i){
+                pair = *i;
+                if(pair->first && pair->second){
+                        unsigned int start, stop;
+                        calc_span(&start,&stop,pair);
+                        //alignments can go past the end of the read.
+                        start = (start <= 0)? 0 : start;
+                        stop = (stop >= length)? length-1 : stop;
+                        fragment_hist[stop-start+1]++;
+			//count only the mid-point of each fragment
+			int midpoint= (long)(.5 + ((double)start+(double)stop)/2.0);
+			pcov[midpoint]++;
+                        /*for(unsigned int count=start; count<=stop;count++){
+
+                                pcov[count]++;
+                        }*/
+                        (*mean_insert)+=(double)(stop - start + 1);
+                        (*counts)++;
+                }
+        }
+        if((*counts)>0.0){
+                (*mean_insert)/=(double)(*counts);
+        }
+
+}
 
 void calculate_fragment_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned long *fragment_hist , unsigned int length){
 
@@ -286,8 +320,9 @@ double calculate_window_coverage(double *coverage, int i, int r, int length){
 
 double Fp(int k, double psi){
 
-return (k<0)?0:gsl_cdf_poisson_P(k,psi);
-
+	return (k<0)?0:gsl_cdf_poisson_P(k,psi);
+//	cout << "k "<< k << " psi " << psi << "\n";
+	//return (k<=0)?0: (double)gammq((float)k, (float)psi);
 }
 
 double pois(int k, double psi){
@@ -297,7 +332,7 @@ double pois(int k, double psi){
 }
 
 
-double r_scan_approximation(int k,double psi, double L){
+double r_scan_less_accurate_approximation(long k,double psi, double L){
 
 /*  Calculates the probability that the sum of a contiguous subset from random variates X1,X2, ... XN is smaller than the expected minimum order statistic given the expected number of variates to cover w.
  psi=lambda*w 
@@ -305,124 +340,343 @@ double r_scan_approximation(int k,double psi, double L){
 */
 	double P=0.0;
  
-	double Q2,Q3,A1,A2,A3,A4,Fp_minus_1,Fp_minus_2,Fp_minus_3,pk;
-        Fp_minus_1=Fp(k-1,psi);
-	Fp_minus_2=Fp(k-2,psi);
-	Fp_minus_3=Fp(k-3,psi);
+	double delta;
+
+	delta = ((double)k-1.0)*(L-1.0)*pois ( k, psi); 
+
+	P =  1 - exp(-delta);
+	return P;
+}
+double r_scan_approximation(long k,double psi, double L){
+
+/*  Calculates the probability that the sum of a contiguous subset from random variates X1,X2, ... XN is smaller than the expected minimum order statistic given the expected number of variates to cover w.
+ psi=lambda*w
+ L=T/w
+*/
+        double P=0.0;
+
+        double Q2,Q3,A1,A2,A3,A4,Fp_minus_1,Fp_minus_2,Fp_minus_3,pk;
+        Fp_minus_3=Fp(k-3,psi); //evaluate Fb as few times as possible.
+        Fp_minus_2=Fp_minus_3+pois ( k-2, psi);
+        Fp_minus_1=Fp_minus_2+pois ( k-1, psi);
+
 	pk=pois ( k, psi);
-	Q2 = pow(Fp_minus_1,2)-(k-1)*pk*pois ( k-2, psi)
-		-(k-1-psi)*pk*Fp_minus_3;
-	A1=2*pk*Fp_minus_1*((k-1)*Fp_minus_2-psi*Fp_minus_3);
-	A2=.5*pow(pk,2)*((k-1)*(k-2)*Fp_minus_3-
-		2*(k-2)*psi*Fp(k-4,psi)+
-		psi*psi*Fp(k-5,psi));
-	A3=0.0;
-	for(int r=1;r<=k-1;r++){
-		A3+=pois ( 2*k-r, psi)*pow(Fp(r-1,psi),2);
-	}	
-	A4=0.0;
-	for(int r=2;r<=k-1;r++){
-                A4+=pois ( 2*k-r, psi)*pois ( r, psi)*((r-1)*Fp(r-2,psi)-psi*Fp(r-3,psi));
+        Q2 = pow(Fp_minus_1,2)-(k-1)*pk*pois ( k-2, psi)
+                -(k-1-psi)*pk*Fp_minus_3;
+        A1=2*pk*Fp_minus_1*((k-1)*Fp_minus_2-psi*Fp_minus_3);
+        A2=.5*pow(pk,2)*((k-1)*(k-2)*Fp_minus_3-
+                2*(k-2)*psi*Fp(k-4,psi)+
+                psi*psi*Fp(k-5,psi));
+        A3=0.0;
+        int r=1;
+
+        A4=0.0;
+	double Fp_rmin1=0.0,Fp_rmin2=0.0,Fp_rmin3=0.0;
+	Fp_rmin1 = pois(0,psi);
+	A3+=pois ( 2*k-r, psi)*pow(Fp_rmin1,2);	
+        for( r=2;r<=k-1;r++){
+		Fp_rmin3 = Fp_rmin2;
+		Fp_rmin2 += pois(r-2,psi);
+		Fp_rmin1 += pois(r-1,psi);
+                A3+=pois ( 2*k-r, psi)*pow(Fp_rmin1,2);
+                A4+=pois ( 2*k-r, psi)*pois ( r, psi)*((r-1)*Fp_rmin2-psi*Fp_rmin3);
+
         }
 
         Q3= pow(Fp_minus_1,3)-A1+A2+A3-A4;
-	P=1-Q2*pow(Q3/Q2,L-2);
-	return P;
+        P=1-Q2*pow(Q3/Q2,L-2);
+        return P;
 }
-double r_scan_calculate(int r, int i, int N, double *standardized_coverage, double *expected_standardized_coverage, double total_coverage){
-	/* r_scan_calculate calculates the r_scan statistic given the standarized coverage, expectation of the standarized coverage, total coverage, 
+
+double large_counts_r_scan_approximation(long k,double lambda, double T, double w){
+/*calculates the r_scan_approximation for large counts(quickly)*/
+	return 1.0 - Fp(k-1,lambda*w)*exp(-(((double)k-w*lambda)/(double)k)*lambda*pois(k-1,lambda*w));
+
+
+
+}
+
+double fast_r_scan_calculate(long r, long N, double standardized_coverage, double expected_standardized_coverage, double total_coverage){
+        /* r_scan_calculate calculates the r_scan statistic given the standarized coverage, expectation of the standarized coverage, total coverage,
           number of points window size and position.
-	r is the r-scan window size. 0<r<N
-	i is the poistion  0<=i<=N-r-1
-	N is the number of nucleotides in the transcript sequence
-	standardized_coverage is the observed coverage standardized such that the expected variance is 1
-	expected_standardized_coverage the standarized_coverage generated from a model which incorporates non-homogenous edge effects.
-	total_coverage the summation of the standarized coverage, this only needs to be calculated once, so it is a parameter.
+        r is the r-scan window size. 0<r<N
+        i is the poistion  0<=i<=N-r-1
+        N is the number of nucleotides in the transcript sequence
+        standardized_coverage is the observed coverage standardized such that the expected variance is 1
+        expected_standardized_coverage the standarized_coverage generated from a model which incorporates non-homogenous edge effects.
+        total_coverage the summation of the standarized coverage, this only needs to be calculated once, so it is a parameter.
 
-	This function makes calls to the r_scan_approximation function, adapting the psi and L arguments to the non-homogenous process, 
-		such that the effective total_coverage shrinks near the ends of the transcript where the local coverage is expected to be less.
-	*/
-	double Ew_nonhomo=0.0, Ew_homo;
-	double psi;
-	double L;
-	double w=0.0;
-	double T=total_coverage;
-	double lambda,ET;
-	double P;
-	for(int j=i;j<i+r;j++){
-		w += standardized_coverage[j];
-		Ew_nonhomo += expected_standardized_coverage[j];  //summing over the expectation window of the non-homogenous process.
-	}
-	Ew_homo=r*T/N; // the expectation of a homogenous process
-	ET=T*Ew_nonhomo/Ew_homo; // The effective total cumulative coverage is reduced for the window.
+        This function makes calls to the r_scan_approximation function, adapting the psi and L arguments to the non-homogenous process,
+                such that the effective total_coverage shrinks near the ends of the transcript where the local coverage is expected to be less.
+        */
+        double Ew_nonhomo=0.0, Ew_homo;
+        double psi;
+        double L;
+        double w=0.000000000000001;
+        double T=total_coverage;
+        double lambda,ET;
+        double P;
+        w = standardized_coverage;
+        Ew_nonhomo = expected_standardized_coverage;  //summing over the expectation window of the non-homogenous process.
+        
+        Ew_homo=r*T/N; // the expectation of a homogenous process
+        ET=T*Ew_nonhomo/Ew_homo; // The effective total cumulative coverage is reduced for the window.
+
+        lambda=(N-1)/ET;  //The expected rate on the window.
+
+        psi=w*lambda;
+        L=ET/w;
+        P=0.0;
+        P=r_scan_approximation((long)r,psi,L);
+        //cout << " w " << w << " Ew " << Ew_nonhomo << " EW_homo " << Ew_homo << " ET " << ET << " T " << T << " lambda " << lambda << " psi " << psi <<  " L " << L << " P " << P <<  "\n";
+        return P;
+}
+double fast_md_pt_Pr_maximum_rth_order_gap(long w, long N, long r){
+        /* r_scan_calculate calculates the r_scan statistic given the standarized coverage, expectation of the standarized coverage, total coverage,
+          number of points window size and position.
+        r is the r-scan window size. 0<r<N
+        i is the poistion  0<=i<=N-r-1
+        N is the number of nucleotides in the transcript sequence
+        standardized_coverage is the observed coverage standardized such that the expected variance is 1
+        expected_standardized_coverage the standarized_coverage generated from a model which incorporates non-homogenous edge effects.
+        total_coverage the summation of the standarized coverage, this only needs to be calculated once, so it is a parameter.
+
+        This function makes calls to the r_scan_approximation function, adapting the psi and L arguments to the non-homogenous process,
+                such that the effective total_coverage shrinks near the ends of the transcript where the local coverage is expected to be less.
+        */
+        double n=N+1;
+	double y=n*w - log(n)-(r-1)*log(log(n));
+	cout << " w " << w << " y " << y << " r " << r << " n " << n << "\n";
 	
-	lambda=N/ET;  //The expected rate on the window.
-
-	psi=w*lambda;
-	L=ET/w;
-	P=0.0;
-	cout << "P\t" << P << "\tr\t" << r << "\tpsi\t" << psi << "\tL\t" << L << "\n";
-	P=r_scan_approximation(r,psi,L);
-	cout << "P\t" << P << "\tr\t" << r << "\tpsi\t" << psi << "\tL\t" << L << "\n";
-	return P;
+        double P=0.0;
+        //P=exp(exp(-y)/exp(gammln(r)));
+        //cout << " w " << w << " Ew " << Ew_nonhomo << " EW_homo " << Ew_homo << " ET " << ET << " T " << T << " lambda " << lambda << " psi " << psi <<  " L " << L << " P " << P <<  "\n";
+        return P;
 }
 
-void find_best_ordered_stat_window_probability(long N, unsigned long *coverage, double mean_fragment_length, double fragment_counts,double *p,long *start,long *r, double *prop_cov){
-	/*finds the most significant window and its significance.
-	p,start, and r are return values.
 
-	p is the significance of the minimum coverage window
-	start is the start position of the minimum coverage window
-	r is the size of the minimum coverage window.	
 
-	N transcript length
-	coverage is an array of observed coverages of length N
-	mean_fragment_length is the mean of the fragments observed in coverage.
-	fragments is the number of fragments used in coverage estimate.
-	total_coverage is the total observed coverage.
-	*/
-	
-	//create standardized coverage
-	//
-	double theta =  fragment_counts/N;
-	double *std_cov = new double[N];
-	double *std_exp_cov = new double[N];
-	double total_prop_cov=0.0;
-	double total_std_cov=0.0;
-	for(int i=0;i<N;i++){
-		std_cov[i]=((double)coverage[i])/theta;
-		total_std_cov+=std_cov[i];
-		total_prop_cov+=prop_cov[i];
-	}
-	//standardize expected coverage such that the proportions of the bases in the transcript are the maintained, 
-	//but the total coverage is the same as for the standarrdized coverage.
-	for(int i=0;i<N;i++){
+
+void fast_scan_stat(long N, unsigned long *coverage, double mean_fragment_length, double fragment_counts,double *p,long *start,long *r, double *prop_cov){
+        /*finds the most significant window and its significance.
+        p,start, and r are return values.
+
+        p is the significance of the minimum coverage window
+        start is the start position of the minimum coverage window
+        r is the size of the minimum coverage window.
+
+        N transcript length
+        coverage is an array of observed coverages of length N
+        mean_fragment_length is the mean of the fragments observed in coverage.
+        fragments is the number of fragments used in coverage estimate.
+        total_coverage is the total observed coverage.
+        */
+
+        //create standardized coverage
+        //
+        double theta =  fragment_counts/N;
+        double *std_cov = new double[N];
+        double *std_exp_cov = new double[N];
+        double total_prop_cov=0.0;
+        double total_std_cov=0.0;
+        for(int i=0;i<N;i++){
+                std_cov[i]=((double)coverage[i])/theta;
+                total_std_cov+=std_cov[i];
+                total_prop_cov+=prop_cov[i];
+        }
+        //standardize expected coverage such that the proportions of the bases in the transcript are the maintained,
+        //but the total coverage is the same as for the standarrdized coverage.
+        for(int i=0;i<N;i++){
                 std_exp_cov[i]=prop_cov[i]*total_std_cov/total_prop_cov;
         }
-		
-	//for each window on the transcript
-	
 
-	double max_p=0.0;
-	long max_start=0,max_r=1;
-	double temp_p=0.0;
-	for(int temp_r=10;temp_r<=400&&temp_r<N;temp_r++){
-		for(int i=0;i<=N-temp_r;i++){
-			r_scan_calculate(temp_r, i, N, std_cov, std_exp_cov, total_std_cov);
-			if(temp_p>max_p){
-				max_p=temp_p;
-				max_start=i;
-				max_r=temp_r;
+        //for each window on the transcript
+
+
+        double min_p=1.0;
+        long min_start=0,min_r=1;
+        double temp_p=1.0;
+
+	//calculate stat for every pair
+	long x2;
+	long x1;
+	double cum_std_cov;
+	double cum_exp_cov;
+	long temp_r;
+	for(x1=0;x1<N-1;x1++){
+		//each time the cumulants will start at x1;
+		cum_std_cov=std_cov[x1]+0.000000000000001;
+		cum_exp_cov=std_exp_cov[x1]+0.000000000000001;
+
+		for(x2=x1+1;x2<N /*&& x2-x1+1<=1000*/;x2++){
+		//cout << x1 <<"\t" << x2<< "\t" << N << "\n";
+	                cum_std_cov+=std_cov[x2];
+        		cum_exp_cov+=std_exp_cov[x2];
+			temp_r=x2-x1+1;
+			//cout << " x1 " << x1 << " x2 " << x2 << " tr "  << temp_r << " cum_std_cov " << cum_std_cov << " cum_exp_cov " << cum_exp_cov << " total_std_cov " << total_std_cov << "\n";
+			//temp_p = faster_less_accurate_r_scan_calculate(temp_r, N, cum_std_cov, cum_exp_cov, total_std_cov);
+			if(cum_std_cov<.5*cum_exp_cov){
+				temp_p=fast_r_scan_calculate(temp_r, N, cum_std_cov, cum_exp_cov, total_std_cov);
+			}else{
+				temp_p=1.0;
 			}
-	
+	//		cout << " x1 " << x1 << " x2 " << x2 << " tr "  << temp_r << " cum_std_cov " << cum_std_cov << " cum_exp_cov " << cum_exp_cov << " total_std_cov " << total_std_cov << " P " << temp_p <<"\n";
+			if(temp_p<min_p || (temp_p==min_p && min_r<temp_r)){
+                                min_p=temp_p;
+                                min_start=x1;
+                                min_r=temp_r;
+				cout << " x1 " << x1 << " x2 " << x2 << " tr "  << temp_r << " cum_std_cov " << cum_std_cov 
+					<< " cum_exp_cov " << cum_exp_cov << " total_std_cov " << total_std_cov << "\n";
+				cout << "P\t" << min_p << "\tr\t" << min_r << "\tmin_start\t" << min_start << "\n";
+                        }	
 		}
-	}
-	(*p)=max_p;
-        (*start)=max_start;
-        (*r)=max_r;
-	delete std_exp_cov;
-	delete std_cov;
+		
+	}	
+        (*p)=min_p;
+        (*start)=min_start;
+        (*r)=min_r;
+        delete std_exp_cov;
+        delete std_cov;
 }
+
+double fast_min_r_scan_calculate(long wp, long T, long kp, long N){
+        /*
+		Glaz Naus Walenstein, Scan Statistics, pg 325
+		"There is a relationship between the maximum and minimum rth order scan"
+		Such that the probability of observing a minimum coverage on an interval is equivalent to observing a maximum of coverage in the complement.
+        */
+	//calculate the complement window w and counts k.
+	double w=T-wp;
+	long k=N-kp;
+
+	//calculate parameters for scan statistic
+        double lambda=((double)N)/(double)T;  //The expected rate on the window.
+        //double psi=w*lambda;
+        //double L=((double)T)/(double)w;
+	//calculate extremal scan statistic.
+        double P=0.0;
+        //P=r_scan_approximation((long)k,psi,L);
+	P=large_counts_r_scan_approximation(k,lambda,T,w);
+        //cout << " w " << w << " Ew " << Ew_nonhomo << " EW_homo " << Ew_homo << " ET " << ET << " T " << T << " lambda " << lambda << " psi " << psi <<  " L " << L << " P " << P <<  "\n";
+        return P;
+}
+
+/*double fast_max_r_scan_calculate(long w, long T, long k, long N){
+
+        double lambda=((double)N)/(double)T;  //The expected rate on the window.
+
+        psi=w*lambda;
+        L=((double)T)/(double)w;
+        P=0.0;
+        P=r_scan_approximation((long)r,psi,L);
+        //cout << " w " << w << " Ew " << Ew_nonhomo << " EW_homo " << Ew_homo << " ET " << ET << " T " << T << " lambda " << lambda << " psi " << psi <<  " L " << L << " P " << P <<  "\n";
+        return P;
+}*/
+
+void fast_md_pt_scan_stat(long N, unsigned long *coverage, double mean_fragment_length, double fragment_counts,double *p,long *start,long *r, double *prop_cov){
+        /*finds the most significant window and its significance.
+        p,start, and r are return values.
+
+        p is the significance of the minimum coverage window
+        start is the start position of the minimum coverage window
+        r is the size of the minimum coverage window.
+
+        N transcript length
+        coverage is an array of observed coverages of length N
+        mean_fragment_length is the mean of the fragments observed in coverage.
+        fragments is the number of fragments used in coverage estimate.
+        total_coverage is the total observed coverage.
+        */
+
+        double *std_exp_cov = new double[N];
+        double total_prop_cov=0.0;
+        long total_std_cov=0;
+        for(int i=0;i<N;i++){
+                total_std_cov+=coverage[i];
+                total_prop_cov+=prop_cov[i];
+        }
+        //standardize expected coverage such that the proportions of the bases in the transcript are the maintained,
+        //but the total coverage is the same as for the standarrdized coverage.
+	//the standarized expected coverage is only used to heuristically prune the coverage problem.
+        for(int i=0;i<N;i++){
+                std_exp_cov[i]=prop_cov[i]*total_std_cov/total_prop_cov;
+        }
+
+        //for each window on the transcript
+
+
+        double min_p=1.0;
+        long min_start=0,min_r=1;
+        double temp_p=1.0;
+
+        //calculate stat for every pair
+        long x2;
+        long x1;
+        long cum_cov;
+        double exp_cov;
+        long temp_r;
+        for(x1=0;x1<N-1;x1++){
+                //each time the cumulants will start at x1;
+                cum_cov=coverage[x1];
+                exp_cov=std_exp_cov[x1];
+
+                for(x2=x1+1;x2<N /*&& x2-x1+1<=1000*/;x2++){
+                        cum_cov+=coverage[x2];
+                        exp_cov+=std_exp_cov[x2];
+                        temp_r=x2-x1+1;
+                        if(cum_cov<.5*exp_cov){
+
+				temp_p = fast_min_r_scan_calculate(temp_r, N, cum_cov, total_std_cov);
+                        }else{
+                                temp_p=1.0;
+                        }
+                        if(temp_p<min_p || (temp_p==min_p && min_r<temp_r)){
+                                min_p=temp_p;
+                                min_start=x1;
+                                min_r=temp_r;
+			
+                                cout << "P\t" << min_p << " tp " << temp_p<< "\tr\t" << min_r << "\tmin_start\t" << min_start << 
+					 " x1 " << x1 << " x2 " << x2 << " cum_std_cov " << cum_cov
+                                         << " total_std_cov " << total_std_cov << "\n";
+			}
+                        
+                }
+
+        }
+        (*p)=min_p;
+        (*start)=min_start;
+        (*r)=min_r;
+        delete std_exp_cov;
+}
+
+
+void calculate_transcript_scan_stat_mid_pt(list<pair_t *> *plist, list<pair_t *> *bad_plist, unsigned int target_len,ostream *logout){
+        //process contig calculating paired insert coverage.
+        unsigned long *raw_coverage=new unsigned long[target_len];
+        memset(raw_coverage,0,sizeof(unsigned long)*target_len);
+        //Clean up hash and list for next set of pairs.
+        double mean_fragment=0.0;
+        unsigned long counts=0;
+        //calculate coverage, and mean insert length.
+        unsigned long *fragment_hist=new unsigned long[target_len];
+        calculate_mid_pt_coverage(plist,raw_coverage,&mean_fragment,&counts,fragment_hist,target_len);
+        model_t *model = new model_t(target_len, fragment_hist, counts, logout);
+
+
+        double p=0.0;
+        long r=0;
+        long start=0;
+
+        fast_md_pt_scan_stat(target_len,raw_coverage,mean_fragment,counts,&p,&start,&r,model->E);
+        cout << "len\tfrag_c\tmean_frag\ti\tr\tP(k,w)\n";
+        cout << target_len << "\t" << counts << "\t" << mean_fragment << "\t" << start  << "\t"<<r << "\t" << p << "\n";
+        delete raw_coverage;
+        delete fragment_hist;
+        delete model;
+
+
+}
+
 
 void calculate_transcript_scan_stat(list<pair_t *> *plist, list<pair_t *> *bad_plist, unsigned int target_len,ostream *logout){
         //process contig calculating paired insert coverage.
@@ -441,7 +695,7 @@ void calculate_transcript_scan_stat(list<pair_t *> *plist, list<pair_t *> *bad_p
 	long r=0;
 	long start=0;
 
-	find_best_ordered_stat_window_probability(target_len,raw_coverage,mean_fragment,counts,&p,&start,&r,model->E);
+	fast_scan_stat(target_len,raw_coverage,mean_fragment,counts,&p,&start,&r,model->E);
 	cout << "len\tfrag_c\tmean_frag\ti\tr\tP(k,w)\n";
 	cout << target_len << "\t" << counts << "\t" << mean_fragment << "\t" << start  << "\t"<<r << "\t" << p << "\n";
         delete raw_coverage;
