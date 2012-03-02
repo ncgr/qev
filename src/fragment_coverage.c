@@ -343,6 +343,27 @@ double large_counts_r_scan_approximation(long k,double lambda, double T, double 
 
 }
 
+double fast_min_r_scan_calculate(long wp, long T, long kp, long N, double exp_cov){
+        /*
+                Glaz Naus Walenstein, Scan Statistics, pg 325
+                "There is a relationship between the maximum and minimum rth order scan"
+                Such that the probability of observing a minimum coverage on an interval is equivalent to observing a maximum of coverage in the complement.
+        */
+        //calculate the complement window w and counts k.
+        double w=T-wp;
+        long k=N-kp;
+
+        //calculate parameters for scan statistic
+        double lambda=((double)N-exp_cov)/(double)w;  //The expected rate on the window.
+        //double psi=w*lambda;
+        //double L=((double)T)/(double)w;
+        //calculate extremal scan statistic.
+        double P=0.0;
+        //P=r_scan_approximation((long)k,psi,L);
+        P=large_counts_r_scan_approximation(k,lambda,T,w);
+        //cout << " w " << w << " Ew " << Ew_nonhomo << " EW_homo " << Ew_homo << " ET " << ET << " T " << T << " lambda " << lambda << " psi " << psi <<  " L " << L << " P " << P <<  "\n";
+        return P;
+}
 
 void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragment_hist, unsigned long counts ,double *p,long *start,long *r){
         /*finds the most significant window and its significance.
