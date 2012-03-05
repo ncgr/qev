@@ -130,36 +130,6 @@ void remove_singlets(list<pair_t *> *plist){
                 }
 	}
 }
-void calculate_fragment_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned int length){
-
-        pair_t *pair=NULL;
-
-        //process contig calculating paired insert coverage.
-        memset(pcov,0,sizeof(long)*length);
-        *mean_insert=0.0;
-        *counts=0;
-        //calculate coverage, and mean insert length.
-        for(  list<pair_t *>::iterator i=plist->begin(); i != plist->end(); ++i){
-                pair = *i;
-                if(pair->first && pair->second){
-                        unsigned int start, stop;
-                        calc_span(&start,&stop,pair);
-                        //alignments can go past the end of the read.
-                        start = (start <= 0)? 0 : start;
-                        stop = (stop >= length)? length-1 : stop;
-                        for(unsigned int count=start; count<=stop;count++){
-
-                                pcov[count]++;
-                        }
-                        (*mean_insert)+=(double)(stop - start + 1);
-                        (*counts)++;
-                }
-        }
-        if((*counts)>0.0){
-                (*mean_insert)/=(double)(*counts);
-        }
-
-}
 void calculate_mid_pt_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned long *fragment_hist , unsigned int length){
 /* This method is for calculating the md point scan stat, instead calculating the coverage it counts the positions of the midpoints of the fragment.
 
@@ -178,6 +148,8 @@ void calculate_mid_pt_coverage(list<pair_t *> *plist, unsigned long *pcov, doubl
                         unsigned int start, stop;
                         calc_span(&start,&stop,pair);
                         //alignments can go past the end of the read.
+
+			//start and stop are zero based
                         start = (start <= 0)? 0 : start;
                         stop = (stop >= length)? length-1 : stop;
                         fragment_hist[stop-start+1]++;
@@ -198,37 +170,6 @@ void calculate_mid_pt_coverage(list<pair_t *> *plist, unsigned long *pcov, doubl
 
 }
 
-void calculate_fragment_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned long *fragment_hist , unsigned int length){
-
-        pair_t *pair=NULL;
-
-        //process contig calculating paired insert coverage.
-        memset(pcov,0,sizeof(long)*length);
-        *mean_insert=0.0;
-        *counts=0;
-        //calculate coverage, and mean insert length.
-        for(  list<pair_t *>::iterator i=plist->begin(); i != plist->end(); ++i){
-                pair = *i;
-                if(pair->first && pair->second){
-                        unsigned int start, stop;
-                        calc_span(&start,&stop,pair);
-                        //alignments can go past the end of the read.
-                        start = (start <= 0)? 0 : start;
-                        stop = (stop >= length)? length-1 : stop;
-			fragment_hist[stop-start+1]++;
-                        for(unsigned int count=start; count<=stop;count++){
-
-                                pcov[count]++;
-                        }
-                        (*mean_insert)+=(double)(stop - start + 1);
-                        (*counts)++;
-                }
-        }
-	if((*counts)>0.0){
-		(*mean_insert)/=(double)(*counts);
-	}
-
-}
 void calculate_fragment_hist(list<pair_t *> *plist, unsigned long *fragment_hist, unsigned int length){
 
         pair_t *pair=NULL;
@@ -332,15 +273,7 @@ double large_counts_r_scan_approximation(long k,double lambda, double T, double 
 
 	This method calculates the r_scan_approximation for large counts, with only one call to the iterative convergence numerical algorithm Fp, which is faster than the 
 	method that is accurate across all input ranges*/
-	if(lambda<=0.0 || w <= 0.0){
-		return 1.0;
-	}else{
-	
-		return 1.0 - Fp(k-1,lambda*w)*exp(-(((double)k-w*lambda)/(double)k)*lambda*pois(k-1,lambda*w));
-	}
-
-
-
+	return 1.0 - Fp(k-1,lambda*w)*exp(-(((double)k-w*lambda)/(double)k)*lambda*pois(k-1,lambda*w));
 }
 
 double fast_min_r_scan_calculate(long wp, long T, long kp, long N, double exp_cov){
@@ -358,9 +291,12 @@ double fast_min_r_scan_calculate(long wp, long T, long kp, long N, double exp_co
         //double psi=w*lambda;
         //double L=((double)T)/(double)w;
         //calculate extremal scan statistic.
-        double P=0.0;
-        //P=r_scan_approximation((long)k,psi,L);
-        P=large_counts_r_scan_approximation(k,lambda,T,w);
+        double P=1.0;
+        
+	//if kp is not small say half of all counts then it can't possibly be significant.
+	if(lambda>0){
+	        P=large_counts_r_scan_approximation(k,lambda,T,w);
+	}
         //cout << " w " << w << " Ew " << Ew_nonhomo << " EW_homo " << Ew_homo << " ET " << ET << " T " << T << " lambda " << lambda << " psi " << psi <<  " L " << L << " P " << P <<  "\n";
         return P;
 }
@@ -417,7 +353,7 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
 	
 
 
-        for(int i=0;i<N;i++){
+        for(int i=0;i<=N;i++){
                 total_std_cov+=coverage[i];
                 total_prop_cov+=lambdas[i];
         }
