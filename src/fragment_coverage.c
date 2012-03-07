@@ -187,68 +187,6 @@ void calculate_fragment_hist(list<pair_t *> *plist, unsigned long *fragment_hist
         }
 }
 
-/*
-creates a model probability model for testing
-*/
-model_t::model_t(unsigned long size, unsigned long *insert_counts, unsigned long counts,ostream *logout){
-        p = new double[size];
-        E = new double[size];
-        pI = new double[size];
-        EI = new unsigned int[size];
-        memset(p,0,sizeof(double)*size);
-	memset(E,0,sizeof(double)*size);
-        for (unsigned int i = 0;i<= size; i++){
-                if(insert_counts[i]>0){
-                         unsigned int FL = i;//fragment length
-                        double temp_p=0.0;
-                        if(size < 2*FL){
-                        //model I: inserts will always overlap
-                                for (unsigned int inc = 1; inc <= size; inc ++){
-                                        if(inc < size - FL){ //if size==4, FL==3
-                                                temp_p=((double)inc)/((double)(size-FL+1));
-                                        }else if(inc <= FL){
-                                                temp_p = 1.0 ;
-                                        }else{  //
-                                                temp_p=((double)(size-inc+1))/((double)(size-FL+1));
-                                        }
-                                        E[inc-1]+=((double)insert_counts[i])*temp_p;
-                                }
-                        }else {
-                                for (unsigned int inc = 1; inc <= size; inc ++){
-                                        if(inc < FL){
-                                                 temp_p=((double)inc)/(double)(size-FL+1);
-                                        }else if(inc <= size - FL ){
-                                                temp_p = ((double)FL)/(double)(size-FL+1);
-                                        }else{
-                                                temp_p=((double)(size-inc+1))/(double)(size-FL+1);
-                                        }
-                                        E[inc-1]+=((double)insert_counts[i])*temp_p;
-                                }
-
-                        }
-                }
-        }
-
-        if(counts>0){
-                for (unsigned int i = 0;i< size; i++){
-                        p[i]=E[i]/(double)counts;
-                        *logout << "model_E\t" << i<< "\t" << E[i] << "\n";
-                }
-        }else{
-                for (unsigned int i = 0;i< size; i++){
-                        p[i]=0.0;
-                        E[i]=0.0;
-                }
-        }
-}
-
-model_t::~model_t(){
-                delete p;
-                delete E;
-                delete pI;
-                delete EI;
-}
-
 
 
 
@@ -256,13 +194,22 @@ double Fp(int k, double psi){
 	//Wrappers for the gsl cumulative poisson.
 	//The default for values of k <= 0.0 is 1.0
 	//The scan stat book defined them to be 0.0
-	return (k<0)?0:gsl_cdf_poisson_P(k,psi);
+	  if(k<0 ){
+                return 0.0;
+        }else {
+		return gsl_cdf_poisson_P(k,psi);
+	}	
 }
 
 double pois(int k, double psi){
 	//Wrapper for gsl_poison pdf.
 	//This is for convenience of coding and testing different numerical methods.
-	return (k<0)?0:gsl_ran_poisson_pdf(k,psi);
+	if(k<0 ){
+		return 0.0;
+	}else {
+
+		return gsl_ran_poisson_pdf(k,psi);
+	}
 }
 
 double large_counts_r_scan_approximation(long k,double lambda, double T, double w){
@@ -294,14 +241,12 @@ double fast_min_r_scan_calculate(long wp, long T, long kp, long N, double exp_co
         double P=1.0;
         
 	//if kp is not small say half of all counts then it can't possibly be significant.
-	if(lambda>0){
-	        P=large_counts_r_scan_approximation(k,lambda,T,w);
-	}
+        P=large_counts_r_scan_approximation(k,lambda,T,w);
         //cout << " w " << w << " Ew " << Ew_nonhomo << " EW_homo " << Ew_homo << " ET " << ET << " T " << T << " lambda " << lambda << " psi " << psi <<  " L " << L << " P " << P <<  "\n";
         return P;
 }
 
-void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragment_hist, unsigned long counts ,double *p,long *start,long *r){
+void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragment_hist, unsigned long counts ,double *p,long *start,long *r, double *exp_win_cov, long * win_cov){
         /*finds the most significant window and its significance.
         p,start, and r are return values.
 
@@ -335,13 +280,15 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
 
 		}
 		obsable_end=N-obsable_start+1;
-		for(int j=obsable_start;j<obsable_end;j++){
-			lambdas[j-1]+=((double)fragment_hist[i])/((double)(obsable_end-obsable_start)+1);
+		if(fragment_hist[i] != 0){
+			double lambda = ((double)fragment_hist[i])/((double)(obsable_end-obsable_start)+1);
+			for(int j=obsable_start;j<=obsable_end;j++){
+				lambdas[j-1]+=lambda;
+			}
 		}
-
 		//calculate the minimum lenght fragment
 		 if(min_f==-1 && fragment_hist[i]!=0){
-			cout << " i " << i << " fh " << fragment_hist[i] << "\n";
+			//cout << " i " << i << " fh " << fragment_hist[i] << "\n";
                         min_f=i;
 			min_w=obsable_start;
 			max_w=obsable_end;
@@ -353,14 +300,17 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
 	
 
 
-        for(int i=0;i<=N;i++){
+        for(int i=0;i<N;i++){
                 total_std_cov+=coverage[i];
                 total_prop_cov+=lambdas[i];
         }
         //standardize expected coverage such that the proportions of the bases in the transcript are the maintained,
         //but the total coverage is the same as for the standarrdized coverage.
+	double proportions = ((double)total_std_cov)/total_prop_cov;
+
+//	cout << " proportions " << proportions << " cov " << total_std_cov << " prop " << total_prop_cov << "\n";
         for(int i=0;i<N;i++){
-                std_exp_cov[i]=lambdas[i]*total_std_cov/total_prop_cov;
+                std_exp_cov[i]=lambdas[i]*proportions;
         }
 
         //for each window on the transcript
@@ -369,6 +319,8 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
         double min_p=1.0;
         long min_start=0,min_r=1;
         double temp_p=1.0;
+	double min_win_exp_cov=0.0;
+	long min_win_cov=0;
 
         //calculate stat for every pair
         long x2;
@@ -376,18 +328,18 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
         long cum_cov;
         double exp_cov;
         long temp_r;
+	long w= max_w - min_w + 1;
         for(x1=min_w;x1<=max_w-1;x1++){
                 //each time the cumulants will start at x1;
                 cum_cov=coverage[x1-1];
                 exp_cov=std_exp_cov[x1-1];
 
-                for(x2=x1+1;x2<=max_w /*&& x2-x1+1<=1000*/;x2++){
+                for(x2=x1+1;x2<=max_w;x2++){
                         cum_cov+=coverage[x2-1];
                         exp_cov+=std_exp_cov[x2-1];
                         temp_r=x2-x1+1;
-                        if(cum_cov < .5 * exp_cov){
-
-				temp_p = fast_min_r_scan_calculate(temp_r, max_w - min_w + 1, cum_cov, total_std_cov, exp_cov);
+                        if(cum_cov < exp_cov*.5  ){
+				temp_p = fast_min_r_scan_calculate(temp_r, w, cum_cov, total_std_cov, exp_cov);
                         }else{
                                 temp_p=1.0;
                         }
@@ -395,10 +347,11 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
                                 min_p=temp_p;
                                 min_start=x1;
                                 min_r=temp_r;
-			
-                                cout << "P\t" << min_p << " tp " << temp_p<< "\tr\t" << min_r << "\tmin_start\t" << min_start << 
-					 " x1 " << x1 << " x2 " << x2 << " cum_std_cov " << cum_cov
-                                         << " total_std_cov " << total_std_cov <<" exp_cov " << exp_cov << "\n";
+				min_win_exp_cov=exp_cov;
+				 min_win_cov=cum_cov;
+/*                                cout << "P\t" << min_p << "\tr\t" << min_r << 
+					 " x1 " << x1 << " x2 " << x2 << " cum_cov " << cum_cov
+                                         <<" exp_cov " << exp_cov <<  " tot_cov " << total_std_cov <<"\n";*/
 			}
                         
                 }
@@ -407,6 +360,8 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
         (*p)=min_p;
         (*start)=min_start;
         (*r)=min_r;
+	(*exp_win_cov)=min_win_exp_cov;
+	(*win_cov)=min_win_cov;
         delete std_exp_cov;
 }
 
@@ -420,16 +375,18 @@ void calculate_transcript_scan_stat_mid_pt(list<pair_t *> *plist, list<pair_t *>
         unsigned long counts=0;
         //calculate coverage, and mean insert length.
         unsigned long *fragment_hist=new unsigned long[target_len+1];
-	memset(fragment_hist,0,sizeof(unsigned long)*target_len+1);
+	memset(fragment_hist,0,sizeof(unsigned long)*(target_len+1));
         calculate_mid_pt_coverage(plist,raw_coverage,&mean_fragment,&counts,fragment_hist,target_len);
 
         double p=0.0;
         long r=0;
         long start=0;
+	double win_exp_cov;
+	long win_cov;
 
-        fast_md_pt_scan_stat(target_len,raw_coverage,fragment_hist,counts,&p,&start,&r);
-        cout << "len\tfrag_c\tmean_frag\ti\tr\tP(k,w)\n";
-        cout << target_len << "\t" << counts << "\t" << mean_fragment << "\t" << start  << "\t"<<r << "\t" << p << "\n";
+        fast_md_pt_scan_stat(target_len,raw_coverage,fragment_hist,counts,&p,&start,&r,&win_exp_cov,&win_cov);
+        //cout << "len\tfrag_c\tmean_frag\ti\tr\tP(k,w)\n";
+        cout << "\tlen\t"<< target_len << "\tcounts\t" << counts << "\tmean_frag\t" << mean_fragment << "\tstart\t" << start  << "\tr\t"<<r << "\tp\t" << p << "\twin_cov\t" << win_cov << "\twin_exp_cov\t"<< win_exp_cov << "\n";
         delete raw_coverage;
         delete fragment_hist;
 
