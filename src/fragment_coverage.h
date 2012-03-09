@@ -76,3 +76,8 @@ void calculate_transcript_scan_stat(list<pair_t *> *plist, list<pair_t *> *bad_p
 double r_scan_approximation(long k,double psi, double L);
 void calculate_transcript_scan_stat_mid_pt(list<pair_t *> *plist, list<pair_t *> *bad_plist, unsigned int target_len,ostream *logout);
 
+double Fp(int k, double psi);
+
+double pois(int k, double psi);
+
+

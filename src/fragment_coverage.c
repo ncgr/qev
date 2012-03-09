@@ -212,6 +212,48 @@ double pois(int k, double psi){
 	}
 }
 
+double r_scan_approximation(long k,double psi, double L){
+
+/*  Calculates the probability that the sum of a contiguous subset from random variates X1,X2, ... XN is smaller than the expected minimum order statistic given the expected number of variates to cover w.
+ psi=lambda*w
+ L=T/w
+*/
+        double P=0.0;
+
+        double Q2,Q3,A1,A2,A3,A4,Fp_minus_1,Fp_minus_2,Fp_minus_3,pk;
+        Fp_minus_3=Fp(k-3,psi); //evaluate Fb as few times as possible.
+        Fp_minus_2=Fp_minus_3+pois ( k-2, psi);
+        Fp_minus_1=Fp_minus_2+pois ( k-1, psi);
+
+        pk=pois ( k, psi);
+        Q2 = pow(Fp_minus_1,2)-(k-1)*pk*pois ( k-2, psi)
+                -(k-1-psi)*pk*Fp_minus_3;
+        A1=2*pk*Fp_minus_1*((k-1)*Fp_minus_2-psi*Fp_minus_3);
+        A2=.5*pow(pk,2)*((k-1)*(k-2)*Fp_minus_3-
+                2*(k-2)*psi*Fp(k-4,psi)+
+                psi*psi*Fp(k-5,psi));
+        A3=0.0;
+        int r=1;
+
+        A4=0.0;
+        double Fp_rmin1=0.0,Fp_rmin2=0.0,Fp_rmin3=0.0;
+        Fp_rmin1 = pois(0,psi);
+        A3+=pois ( 2*k-r, psi)*pow(Fp_rmin1,2);
+        for( r=2;r<=k-1;r++){
+                Fp_rmin3 = Fp_rmin2;
+                Fp_rmin2 += pois(r-2,psi);
+                Fp_rmin1 += pois(r-1,psi);
+                A3+=pois ( 2*k-r, psi)*pow(Fp_rmin1,2);
+                A4+=pois ( 2*k-r, psi)*pois ( r, psi)*((r-1)*Fp_rmin2-psi*Fp_rmin3);
+
+        }
+
+        Q3= pow(Fp_minus_1,3)-A1+A2+A3-A4;
+        P=1-Q2*pow(Q3/Q2,L-2);
+        return P;
+}
+
+
 double large_counts_r_scan_approximation(long k,double lambda, double T, double w){
 /*	This method estimates the r-scan statistic quickly and is accurate for large counts.
 	For the purposes of the coverage quality statistic.  While the coverage problem is looking for the minimal statistic, the dual maximual problem is well defined.
@@ -220,7 +262,17 @@ double large_counts_r_scan_approximation(long k,double lambda, double T, double 
 
 	This method calculates the r_scan_approximation for large counts, with only one call to the iterative convergence numerical algorithm Fp, which is faster than the 
 	method that is accurate across all input ranges*/
-	return 1.0 - Fp(k-1,lambda*w)*exp(-(((double)k-w*lambda)/(double)k)*lambda*pois(k-1,lambda*w));
+	//return 1.0 - Fp(k-1,lambda*w)*exp(-(((double)k-w*lambda)/(double)k)*lambda*pois(k-1,lambda*w));
+	double x = -(log(Fp(k-1,lambda*w))-(((double)k-w*lambda)/(double)k)*lambda*pois(k-1,lambda*w));
+//        cout << " x " << x << " P " << 1.0 - Fp(k-1,lambda*w)*exp(-(((double)k-w*lambda)/(double)k)*lambda*pois(k-1,lambda*w)) << " ratio " << (1.0000001 - 0.16667825 * x) / (1 + 0.33321764 * x) <<"\n";
+        double p = x * (1.0000001 - 0.16667825 * x) / (1 + 0.33321764 * x);
+
+	//The following is to pretty up the output changing -0 to just 0.
+	if (p==0.0){
+		p=0.0;
+	}
+	return p;
+
 }
 
 double fast_min_r_scan_calculate(long wp, long T, long kp, long N, double exp_cov){
@@ -242,7 +294,9 @@ double fast_min_r_scan_calculate(long wp, long T, long kp, long N, double exp_co
         
 	//if kp is not small say half of all counts then it can't possibly be significant.
         P=large_counts_r_scan_approximation(k,lambda,T,w);
-        //cout << " w " << w << " Ew " << Ew_nonhomo << " EW_homo " << Ew_homo << " ET " << ET << " T " << T << " lambda " << lambda << " psi " << psi <<  " L " << L << " P " << P <<  "\n";
+	//P=r_scan_approximation(k,w*lambda, T/w);
+	
+        //cout << " w " << w << " Ew " << Ew_nonhomo << " EW_homo " << Ew_homo << " ET " << ET << " T " << T << " lambda " << lambda << " psi " << psi <<  " L " << L << " P " << P <<  "\n"
         return P;
 }
 
@@ -282,6 +336,7 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
 		obsable_end=N-obsable_start+1;
 		if(fragment_hist[i] != 0){
 			double lambda = ((double)fragment_hist[i])/((double)(obsable_end-obsable_start)+1);
+			cout << " lambda " << lambda << " obsable_start " << obsable_start << " obsable_end " << obsable_end << " fh " << fragment_hist[i] << " i " << i << "\n";
 			for(int j=obsable_start;j<=obsable_end;j++){
 				lambdas[j-1]+=lambda;
 			}
@@ -311,6 +366,7 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
 //	cout << " proportions " << proportions << " cov " << total_std_cov << " prop " << total_prop_cov << "\n";
         for(int i=0;i<N;i++){
                 std_exp_cov[i]=lambdas[i]*proportions;
+		cout << "cov\t" << i << "\t" << std_exp_cov[i] << "\t" << coverage[i] << "\n";
         }
 
         //for each window on the transcript

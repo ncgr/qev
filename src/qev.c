@@ -26,8 +26,8 @@ int main(int argc, char *argv[])
         tmpstruct_t tmp;
 	bamFile fp;
 	faidx_t *fai;
-	if (argc != 3) {
-		fprintf(stderr, "Usage: qev <in.bam> <in.fna>\n");
+	if (argc != 3 && argc !=4) {
+		fprintf(stderr, "Usage: qev <in.bam> <in.fna> <contig_optional>\n");
 		return 1;
 	}
         fp = bam_open(argv[1], "rb");
@@ -58,18 +58,25 @@ int main(int argc, char *argv[])
 	        hin = bam_header_read(fp);
 	
 		for (int j = 0; j < hin->n_targets; ++j){
-			hash_list_t *hash_list = new hash_list_t();
-	                bam_fetch(tmp.in->x.bam, idx, j, tmp.beg, tmp.end, hash_list, fetch_func);
-			remove_singlets(hash_list->plist);
-			printf(">%s ", hin->target_name[j]);
+                        //if(strcmp(hin->target_name[j], "BPA_29")==0){
+			if(strcmp(hin->target_name[j], argv[3])==0){
+				printf(">%s \n", hin->target_name[j]);
+				hash_list_t *hash_list = new hash_list_t();
+		                bam_fetch(tmp.in->x.bam, idx, j, tmp.beg, tmp.end, hash_list, fetch_func);
+				remove_singlets(hash_list->plist);
+                              
+                        
+
 			//calculate_transcript(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&dnull);
 			//calculate_transcript_scan_stat(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&dnull);
-			calculate_transcript_scan_stat_mid_pt(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&dnull);
-	        	char *seq;
-			int len;
-        		seq = faidx_fetch_seq(fai, tmp.in->header->target_name[j], 0,  tmp.in->header->target_len[j] , &len);
-			cout << seq << "\n";
-			delete hash_list;
+				calculate_transcript_scan_stat_mid_pt(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&dnull);
+			
+		        	char *seq;
+				int len;
+        			seq = faidx_fetch_seq(fai, tmp.in->header->target_name[j], 0,  tmp.in->header->target_len[j] , &len);
+		//	cout << seq << "\n";
+				delete hash_list;
+			}
 		}
 	}
 	return 0;
