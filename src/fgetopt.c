@@ -82,7 +82,7 @@ int fgetopt_long (
 
                 for (op = longopts; op->name; ++op)
                 {
-                    if (end - begin == strlen (op->name)
+                    if (((unsigned int) (end - begin)) == strlen (op->name)
                         && strncmp (begin, op->name, end - begin) == 0)
                     {
                         int ret = 0;
