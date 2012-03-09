@@ -10,6 +10,8 @@
 #include <cstdio>
 #include "fragment_coverage.h"
 #include <fstream>
+#include "fgetopt.h"
+
 
 using namespace std;
 using google::sparse_hash_map;
@@ -24,59 +26,116 @@ typedef struct {
 int main(int argc, char *argv[])
 {
         tmpstruct_t tmp;
-	bamFile fp;
-	faidx_t *fai;
-	if (argc != 3 && argc !=4) {
-		fprintf(stderr, "Usage: qev <in.bam> <in.fna> <contig_optional>\n");
-		return 1;
-	}
-        fp = bam_open(argv[1], "rb");
-	fai = fai_load(argv[2]);	
+	tmp.in=0;
+	bamFile fp = 0;
+	faidx_t *fai = 0;
+	 bam_index_t *idx=0;
 
-	if (fp == 0) {
-		fprintf(stderr, "Fail to open BAM file %s\n", argv[1]);
-		return 1;
-	}
-        tmp.beg = 0; tmp.end = 0x7fffffff;
-        tmp.in = samopen(argv[1], "rb", 0);
-	ofstream dnull;
-	dnull.open("/dev/null");
+   static struct option long_options[] =
+        {
+                        {"help",0,0,'h'},  //help 
+                        {0,0,0,'h'},	   //print help if no commands
+                        {"bam", 1, 0, 'b'}, // the bam file for input required
+                        {"fasta", 1, 0, 'f'},// the fasta file for input required
+                        {"transcript", 1, 0, 't'}, // optional only get one transcript
+                        {"log", 1, 0, 'l'}, // optional output log of the coverage
+        };
+    char usageMessage[] =
+    "\n\nOptions for this program include\n\
+    -h, -help, --help,           Print this message.\n\
+    -i, -bam, --bam,           required bam indexed bam file for input.\n\
+    -f, -fasta, --fasta        required fasta indexed fasta file for sequenceinput \n\
+\n\
+\n\
+\n\
+    Optional arguments \n\
+    -t, -transcript --transcript evaluates the quality for a single transcript \n\
+    -l, -log --log outputs additional log information \n\n";
 
-        if (tmp.in == 0) {
-                fprintf(stderr, "Fail to open BAM file %s\n", argv[1]);
-                return 1;
-        } else {
-                tmp.beg = 0; tmp.end = 0x7fffffff;
+    int option_index=0;
+    int optflag=0;
+    char *transcript=0;
+    char *logfilename=0;
 
-                bam_index_t *idx;
-                idx = bam_index_load(argv[1]); // load BAM index
-                if (idx == 0) {
-                        fprintf(stderr, "BAM indexing file is not available.\n");
+
+   
+
+    while(  (optflag = fgetopt_long ( argc, argv , "b:f:t:l:h" , long_options , &option_index )) !=EOF ){
+    //  printf("Option %c Argument %s\n",optflag,optarg);
+        switch(optflag){
+
+                break;
+        case 'b':
+                cerr << "Bam file -b " << optarg << "\n";
+		fp = bam_open(optarg, "rb");
+		tmp.in = samopen(optarg, "rb", 0);
+                idx = bam_index_load(optarg); // load BAM index
+
+		if (fp == 0 || tmp.in ==0) {
+        	        fprintf(stderr, "Fail to open BAM file or index of BAM file%s\n", optarg);
+	                return 1;
+		}
+        	
+		break;
+        case 'f':
+                cerr << "fasta file -f " << optarg << "\n";
+		fai = fai_load(optarg);
+		if (fai == 0) {
+                        fprintf(stderr, "Fail to open fasta file %s\n", optarg);
                         return 1;
                 }
-		bam_header_t *hin;
-	        hin = bam_header_read(fp);
-	
-		for (int j = 0; j < hin->n_targets; ++j){
-                        //if(strcmp(hin->target_name[j], "BPA_29")==0){
-			if(strcmp(hin->target_name[j], argv[3])==0){
-				printf(">%s \n", hin->target_name[j]);
-				hash_list_t *hash_list = new hash_list_t();
-		                bam_fetch(tmp.in->x.bam, idx, j, tmp.beg, tmp.end, hash_list, fetch_func);
-				remove_singlets(hash_list->plist);
-                              
-                        
+		break;
+        case 't':
+                cerr << "transcript name -t " << optarg << "\n";
+		transcript = new char[strlen(optarg)+1];
+		strcpy(transcript,optarg);
+		break;
+        case 'l':
+                cerr << "log file -l " << optarg << "\n";
+		logfilename = new char[strlen(optarg)+1];
+                strcpy(logfilename,optarg);
 
-			//calculate_transcript(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&dnull);
-			//calculate_transcript_scan_stat(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&dnull);
-				calculate_transcript_scan_stat_mid_pt(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&dnull);
+		break;
+	default:
+	 case ':':
+        case '?':
+        case 'h':
+                printf(usageMessage);
+                return 1;
+	}
+	}
+
+	if(!fai || !fp){
+		printf(usageMessage);
+                return 1;
+	}
+	ofstream logfile;
+        if(!logfilename){
+                logfile.open("/dev/null");
+        }else{
+                logfile.open(logfilename);
+        }
+
+
+
+        tmp.beg = 0; tmp.end = 0x7fffffff;
+
+	bam_header_t *hin;
+	hin = bam_header_read(fp);
+	
+	for (int j = 0; j < hin->n_targets; ++j){
+		if( !transcript || strcmp(hin->target_name[j], transcript)==0){
+			printf(">%s ", hin->target_name[j]);
+			hash_list_t *hash_list = new hash_list_t();
+		        bam_fetch(tmp.in->x.bam, idx, j, tmp.beg, tmp.end, hash_list, fetch_func);
+			remove_singlets(hash_list->plist);
+			calculate_transcript_scan_stat_mid_pt(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&logfile);
 			
-		        	char *seq;
-				int len;
-        			seq = faidx_fetch_seq(fai, tmp.in->header->target_name[j], 0,  tmp.in->header->target_len[j] , &len);
-		//	cout << seq << "\n";
-				delete hash_list;
-			}
+	        	char *seq;
+			int len;
+       			seq = faidx_fetch_seq(fai, tmp.in->header->target_name[j], 0,  tmp.in->header->target_len[j] , &len);
+			cout << seq << "\n";
+			delete hash_list;
 		}
 	}
 	return 0;

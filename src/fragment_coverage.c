@@ -300,7 +300,7 @@ double fast_min_r_scan_calculate(long wp, long T, long kp, long N, double exp_co
         return P;
 }
 
-void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragment_hist, unsigned long counts ,double *p,long *start,long *r, double *exp_win_cov, long * win_cov){
+void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragment_hist, unsigned long counts ,double *p,long *start,long *r, double *exp_win_cov, long * win_cov, ostream *logout){
         /*finds the most significant window and its significance.
         p,start, and r are return values.
 
@@ -336,7 +336,7 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
 		obsable_end=N-obsable_start+1;
 		if(fragment_hist[i] != 0){
 			double lambda = ((double)fragment_hist[i])/((double)(obsable_end-obsable_start)+1);
-			cout << " lambda " << lambda << " obsable_start " << obsable_start << " obsable_end " << obsable_end << " fh " << fragment_hist[i] << " i " << i << "\n";
+			//(logout << " lambda " << lambda << " obsable_start " << obsable_start << " obsable_end " << obsable_end << " fh " << fragment_hist[i] << " i " << i << "\n";
 			for(int j=obsable_start;j<=obsable_end;j++){
 				lambdas[j-1]+=lambda;
 			}
@@ -366,7 +366,7 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
 //	cout << " proportions " << proportions << " cov " << total_std_cov << " prop " << total_prop_cov << "\n";
         for(int i=0;i<N;i++){
                 std_exp_cov[i]=lambdas[i]*proportions;
-		cout << "cov\t" << i << "\t" << std_exp_cov[i] << "\t" << coverage[i] << "\n";
+		(*logout) << "cov\t" << i << "\t" << std_exp_cov[i] << "\t" << coverage[i] << "\n";
         }
 
         //for each window on the transcript
@@ -440,7 +440,7 @@ void calculate_transcript_scan_stat_mid_pt(list<pair_t *> *plist, list<pair_t *>
 	double win_exp_cov;
 	long win_cov;
 
-        fast_md_pt_scan_stat(target_len,raw_coverage,fragment_hist,counts,&p,&start,&r,&win_exp_cov,&win_cov);
+        fast_md_pt_scan_stat(target_len,raw_coverage,fragment_hist,counts,&p,&start,&r,&win_exp_cov,&win_cov, logout);
         //cout << "len\tfrag_c\tmean_frag\ti\tr\tP(k,w)\n";
         cout << "\tlen\t"<< target_len << "\tcounts\t" << counts << "\tmean_frag\t" << mean_fragment << "\tstart\t" << start  << "\tr\t"<<r << "\tp\t" << p << "\twin_cov\t" << win_cov << "\twin_exp_cov\t"<< win_exp_cov << "\n";
         delete raw_coverage;
