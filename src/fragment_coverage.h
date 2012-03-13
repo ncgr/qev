@@ -52,15 +52,6 @@ void remove_singlets(list<pair_t *> *plist);
 	@length input for the length of the contig
 */
 
-class model_t{
-        public:
-        double *p;
-        double *E;
-        double *pI;
-        unsigned int *EI;
-        model_t(unsigned long size, unsigned long *insert_counts, unsigned long counts,ostream *logout);
-        ~model_t();
-};
 
 void calculate_transcript(list<pair_t *> *plist, list<pair_t *> *bad_plist, unsigned int target_len);
 

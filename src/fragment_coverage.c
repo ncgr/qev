@@ -11,6 +11,8 @@
 #include <gsl/gsl_randist.h>
 #include <math.h>
 #include <ostream>
+#include "model.h"
+#include "multinomial.h"
 
 
 hash_list_t::hash_list_t(){
@@ -130,7 +132,7 @@ void remove_singlets(list<pair_t *> *plist){
                 }
 	}
 }
-void calculate_mid_pt_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned long *fragment_hist , unsigned int length){
+void calculate_coverage_counts(list<pair_t *> *plist,unsigned long *cov, unsigned long *mcov, double *mean_insert, unsigned long * counts, unsigned long *fragment_hist , unsigned int length){
 /* This method is for calculating the md point scan stat, instead calculating the coverage it counts the positions of the midpoints of the fragment.
 
 
@@ -138,7 +140,8 @@ void calculate_mid_pt_coverage(list<pair_t *> *plist, unsigned long *pcov, doubl
         pair_t *pair=NULL;
 
         //process contig calculating paired insert coverage.
-        memset(pcov,0,sizeof(long)*length);
+        memset(cov,0,sizeof(long)*length);
+        memset(cov,0,sizeof(long)*length);
         *mean_insert=0.0;
         *counts=0;
         //calculate coverage, and mean insert length.
@@ -155,11 +158,11 @@ void calculate_mid_pt_coverage(list<pair_t *> *plist, unsigned long *pcov, doubl
                         fragment_hist[stop-start+1]++;
 			//count only the mid-point of each fragment
 			int midpoint= (long)(.5 + ((double)start+(double)stop)/2.0);
-			pcov[midpoint]++;
-                        /*for(unsigned int count=start; count<=stop;count++){
+			mcov[midpoint]++;
+                        for(unsigned int count=start; count<=stop;count++){
 
-                                pcov[count]++;
-                        }*/
+                                cov[count]++;
+                        }
                         (*mean_insert)+=(double)(stop - start + 1);
                         (*counts)++;
                 }
@@ -169,6 +172,8 @@ void calculate_mid_pt_coverage(list<pair_t *> *plist, unsigned long *pcov, doubl
         }
 
 }
+
+
 
 void calculate_fragment_hist(list<pair_t *> *plist, unsigned long *fragment_hist, unsigned int length){
 
@@ -430,19 +435,75 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
 	}
         delete std_exp_cov;
 }
+void minimum_coverage_probability( 
+	unsigned long *pcov, 
+	unsigned long *fragment_hist, 
+	double mean_insert,
+	unsigned long counts,
+	unsigned int target_len,
+	ostream *logout){
 
 
-void calculate_transcript_scan_stat_mid_pt(list<pair_t *> *plist, list<pair_t *> *bad_plist, unsigned int target_len,ostream *logout){
+        model_t *model = new model_t(target_len, fragment_hist, counts, logout);
+        //calculate the minimum probability of any position in the transcript.
+        double min_binom_p=1.0;
+        unsigned int min_ink=0;
+        double p_total=0.0;
+        for(unsigned int ink=0;ink<target_len;++ink){
+                double P=0.0;
+                if(model->p[ink] < 0.0 || model->p[ink] > 1.0){
+                        cerr << "p out-of-bounds " << model->p[ink] << " at " << ink << "\n";
+                        P=-1;
+                }else{
+                        P = gsl_cdf_binomial_P(pcov[ink],model->p[ink],counts);
+                }
+                if(min_binom_p>P){
+                        min_binom_p = P;
+                        min_ink =  ink;
+                }
+                p_total+=model->p[ink];
+        }
+
+        //set the relative lower bound for subsequently calculating the confidence in the transcript.
+        unsigned int N=0;
+        int bad_count=0;
+        for(unsigned int ink=0;ink<target_len;++ink){
+                N+=pcov[ink];
+                model->pI[ink]=model->p[ink]/p_total;
+                //set relative lower bound
+                model->EI[ink]=(unsigned int) (model->E[ink]*(pcov[min_ink]/model->E[min_ink])+.5);
+                if( model->p[ink]<0.0 || model->p[ink]>1.0){
+                        bad_count++;
+                }
+                (*logout)<< "pcov_P\t" << ink << "\t" << pcov[ink] <<"\n";
+        }
+        double res = 0;
+        if(N>0 || bad_count==0){
+                res = cdf_multinomial_P(target_len,N,model->pI,model->EI);
+        }else{
+                res = -1;
+        }
+       cout << "len " << target_len <<" frag_c "<< counts << " tot_Nucs " << N << " ave_frag_len " << mean_insert << " pos " << min_ink <<" minPcdf " << min_binom_p << " model_p " << model->p[min_ink] << " model_expec " << model->E[min_ink] << " m_cdf " << res << " pcov " << pcov[min_ink] << " p_tot " << p_total <<"\n";
+        //cout << "\n";
+        delete pcov;
+        delete fragment_hist;
+        delete model;
+}
+
+void calculate_transcript_shape_coverage(list<pair_t *> *plist, list<pair_t *> *bad_plist, unsigned int target_len,ostream *logout){
         //process contig calculating paired insert coverage.
         unsigned long *raw_coverage=new unsigned long[target_len];
         memset(raw_coverage,0,sizeof(unsigned long)*target_len);
+	unsigned long *midpoint_counts=new unsigned long[target_len];
+        memset(midpoint_counts,0,sizeof(unsigned long)*target_len);
+
         //Clean up hash and list for next set of pairs.
         double mean_fragment=0.0;
         unsigned long counts=0;
         //calculate coverage, and mean insert length.
         unsigned long *fragment_hist=new unsigned long[target_len+1];
 	memset(fragment_hist,0,sizeof(unsigned long)*(target_len+1));
-        calculate_mid_pt_coverage(plist,raw_coverage,&mean_fragment,&counts,fragment_hist,target_len);
+        calculate_coverage_counts(plist,raw_coverage,midpoint_counts,&mean_fragment,&counts,fragment_hist,target_len);
 
         double p=0.0;
         long r=0;
@@ -451,6 +512,7 @@ void calculate_transcript_scan_stat_mid_pt(list<pair_t *> *plist, list<pair_t *>
 	long win_cov;
 
         fast_md_pt_scan_stat(target_len,raw_coverage,fragment_hist,counts,&p,&start,&r,&win_exp_cov,&win_cov, logout);
+	//coverage_scan
         //cout << "len\tfrag_c\tmean_frag\ti\tr\tP(k,w)\n";
         cout << "\tlen\t"<< target_len << "\tcounts\t" << counts << "\tmean_frag\t" << mean_fragment << "\tstart\t" << start  << "\tr\t"<<r << "\tp\t" << p << "\twin_cov\t" << win_cov << "\twin_exp_cov\t"<< win_exp_cov << "\n";
         delete raw_coverage;
@@ -458,5 +520,6 @@ void calculate_transcript_scan_stat_mid_pt(list<pair_t *> *plist, list<pair_t *>
 
 
 }
+
 
 
