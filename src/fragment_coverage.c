@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <iostream>
-#include <google/sparse_hash_map>
 #include <string.h>
 #define _cplusplus
-#include "bam.h"
 #include <list>
 #include <cstdio>
 #include "fragment_coverage.h"
@@ -342,6 +340,12 @@ void minimum_coverage_probability(
 	double mean_insert,
 	unsigned long counts,
 	unsigned int target_len,
+	unsigned long *total_nucs,
+	unsigned long *position,
+	double *model_bp,
+	double *model_mcdf,
+	double *coverage,
+	double *exp_cov,
 	ostream *logout){
 
 
@@ -384,10 +388,12 @@ void minimum_coverage_probability(
         }else{
                 res = -1;
         }
-       cout << "len " << target_len <<" frag_c "<< counts << " tot_Nucs " << N << " ave_frag_len " << mean_insert << " pos " << min_ink <<" minPcdf " << min_binom_p << " model_p " << model->p[min_ink] << " model_expec " << model->E[min_ink] << " m_cdf " << res << " pcov " << pcov[min_ink] << " p_tot " << p_total <<"\n";
-        //cout << "\n";
-        delete pcov;
-        delete fragment_hist;
+	(*model_bp)=model->p[min_ink];
+	(*model_mcdf)=res;
+	(*coverage)= pcov[min_ink];
+	(*exp_cov)=model->E[min_ink];
+	(*position)=min_ink;
+	(*total_nucs)=N;
         delete model;
 }
 
@@ -409,16 +415,24 @@ void calculate_transcript_shape_coverage(list<pair_t *> *plist, list<pair_t *> *
         double p=0.0;
         long r=0;
         long start=0;
-	double win_exp_cov;
-	long win_cov;
+	double win_exp_cov=0;
+	long win_cov=0;
+	unsigned long total_nucs=0;
+	unsigned long position=0;
+	double model_bp=0;
+	double model_mcdf=0;
+	double coverage=0;
+	double exp_cov=0;
+
+	minimum_coverage_probability( raw_coverage, fragment_hist, mean_fragment, counts, target_len, 
+		&total_nucs, &position, &model_bp, &model_mcdf, &coverage, &exp_cov, logout);
 
         fast_md_pt_scan_stat(target_len,raw_coverage,fragment_hist,counts,&p,&start,&r,&win_exp_cov,&win_cov, logout);
 	//coverage_scan
         //cout << "len\tfrag_c\tmean_frag\ti\tr\tP(k,w)\n";
-        cout << "\tlen\t"<< target_len << "\tcounts\t" << counts << "\tmean_frag\t" << mean_fragment << "\tstart\t" << start  << "\tr\t"<<r << "\tp\t" << p << "\twin_cov\t" << win_cov << "\twin_exp_cov\t"<< win_exp_cov << "\n";
+        cout << "\tT\t"<< target_len << "\tF\t" << counts << "\tav_f\t" << mean_fragment << "\tshape:\tx1\t" << start  << "\tr\t"<<r << "\tp\t" << p << "\twin_count\t" << win_cov << "\texp_count\t"<< win_exp_cov << "\tscale:\ttot_nuc\t"<< total_nucs<< "\tpos\t"<<position<<"\tcov\t"<<coverage<<"\texp(cov)\t"<<exp_cov<<"\tbin-p\t"<<model_bp<<"\tmcdf\t"<< model_mcdf<<"\n";
         delete raw_coverage;
         delete fragment_hist;
-
 
 }
 
