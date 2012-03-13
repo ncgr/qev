@@ -385,6 +385,14 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
         double exp_cov;
         long temp_r;
 	long w= max_w - min_w + 1;
+	//
+	if(total_std_cov==0){
+		(*p)=0;
+	        (*start)=1;
+        	(*r)=N;
+	        (*exp_win_cov)=0;
+        	(*win_cov)=0;
+	}else{
         for(x1=min_w;x1<=max_w-1;x1++){
                 //each time the cumulants will start at x1;
                 cum_cov=coverage[x1-1];
@@ -413,11 +421,13 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
                 }
 
         }
+	
         (*p)=min_p;
         (*start)=min_start;
         (*r)=min_r;
 	(*exp_win_cov)=min_win_exp_cov;
 	(*win_cov)=min_win_cov;
+	}
         delete std_exp_cov;
 }
 

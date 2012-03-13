@@ -129,6 +129,7 @@ int main(int argc, char *argv[])
 			hash_list_t *hash_list = new hash_list_t();
 		        bam_fetch(tmp.in->x.bam, idx, j, tmp.beg, tmp.end, hash_list, fetch_func);
 			remove_singlets(hash_list->plist);
+			logfile << ">" << hin->target_name[j] << "\n";
 			calculate_transcript_scan_stat_mid_pt(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&logfile);
 			
 	        	char *seq;
