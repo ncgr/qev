@@ -11,7 +11,7 @@
 #include "fragment_coverage.h"
 #include <fstream>
 #include "fgetopt.h"
-
+#include "bam_coverage.h"
 
 using namespace std;
 using google::sparse_hash_map;
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
 		        bam_fetch(tmp.in->x.bam, idx, j, tmp.beg, tmp.end, hash_list, fetch_func);
 			remove_singlets(hash_list->plist);
 			logfile << ">" << hin->target_name[j] << "\n";
-			calculate_transcript_scan_stat_mid_pt(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&logfile);
+			calculate_transcript_shape_coverage(hash_list->plist,hash_list->bad_plist, tmp.in->header->target_len[j],&logfile);
 			
 	        	char *seq;
 			int len;

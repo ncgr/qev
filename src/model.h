@@ -1,3 +1,7 @@
+#include <stdio.h>
+#define _cplusplus
+#include<ostream>
+using namespace std;
 
 
 

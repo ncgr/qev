@@ -1,7 +1,9 @@
-#define _cplusplus
-#include <math.h>
-#include <ostream>
+//#define _cplusplus
 #include "model.h"
+#include <stdio.h>
+#include <iostream>
+#include <ostream>
+using namespace std;
 
 /*
 creates a model probability model for testing
