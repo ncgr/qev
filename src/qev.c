@@ -44,11 +44,11 @@ int main(int argc, char *argv[])
     "\n\nOptions for this program include\n\
     -h, -help, --help,           Print this message.\n\
     -i, -bam, --bam,           required bam indexed bam file for input.\n\
-    -f, -fasta, --fasta        required fasta indexed fasta file for sequenceinput \n\
 \n\
 \n\
 \n\
     Optional arguments \n\
+    -f, -fasta, --fasta    generates output as a fasta, with a fasta file for sequence input \n\
     -t, -transcript --transcript evaluates the quality for a single transcript \n\
     -l, -log --log outputs additional log information \n\n";
 
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	}
 	}
 
-	if(!fai || !fp){
+	if(!fp){
 		printf(usageMessage);
                 return 1;
 	}
@@ -125,7 +125,10 @@ int main(int argc, char *argv[])
 	
 	for (int j = 0; j < hin->n_targets; ++j){
 		if( !transcript || strcmp(hin->target_name[j], transcript)==0){
-			printf(">%s ", hin->target_name[j]);
+			if(fai){
+				printf(">");
+			}
+			printf("%s ", hin->target_name[j]);
 			hash_list_t *hash_list = new hash_list_t();
 		        bam_fetch(tmp.in->x.bam, idx, j, tmp.beg, tmp.end, hash_list, fetch_func);
 			remove_singlets(hash_list->plist);
@@ -134,8 +137,10 @@ int main(int argc, char *argv[])
 			
 	        	char *seq;
 			int len;
-       			seq = faidx_fetch_seq(fai, tmp.in->header->target_name[j], 0,  tmp.in->header->target_len[j] , &len);
-			cout << seq << "\n";
+			if(fai){
+	      			seq = faidx_fetch_seq(fai, tmp.in->header->target_name[j], 0,  tmp.in->header->target_len[j] , &len);
+				cout << seq << "\n";
+			}
 			delete hash_list;
 		}
 	}

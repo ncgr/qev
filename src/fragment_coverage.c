@@ -425,7 +425,7 @@ void calculate_transcript_shape_coverage(list<pair_t *> *plist, list<pair_t *> *
 	}
 	//coverage_scan
         //cout << "len\tfrag_c\tmean_frag\ti\tr\tP(k,w)\n";
-        cout << "\tT\t"<< target_len << "\tF\t" << counts << "\tav_f\t" << mean_fragment << "\tshape:\tx1\t" << start  << "\tr\t"<<r << "\tp\t" << p << "\twin_count\t" << win_cov << "\texp_count\t"<< win_exp_cov << "\tscale:\ttot_nuc\t"<< total_nucs<< "\tpos\t"<<position<<"\tcov\t"<<coverage<<"\texp(cov)\t"<<exp_cov<<"\tbin-p\t"<<model_bp<<"\tmcdf\t"<< model_mcdf<<"\n";
+        cout << "\tT="<< target_len << "\tF=" << counts << "\tav_f=" << mean_fragment << "\tshape:\tx1=" << start  << "\tr="<<r << "\tp=" << p << "\twin_count=" << win_cov << "\texp_count="<< win_exp_cov << "\tscale:\ttot_nuc="<< total_nucs<< "\tpos="<<position<<"\tcov="<<coverage<<"\texp(cov)="<<exp_cov<<"\tbin-p="<<model_bp<<"\tmcdf="<< model_mcdf<<"\n";
         delete raw_coverage;
         delete fragment_hist;
 
