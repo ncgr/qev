@@ -290,13 +290,6 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
         long temp_r;
 	long w= max_w - min_w + 1;
 	//
-	if(total_std_cov==0){
-		(*p)=0;
-	        (*start)=1;
-        	(*r)=N;
-	        (*exp_win_cov)=0;
-        	(*win_cov)=0;
-	}else{
         for(x1=min_w;x1<=max_w-1;x1++){
                 //each time the cumulants will start at x1;
                 cum_cov=coverage[x1-1];
@@ -331,7 +324,6 @@ void fast_md_pt_scan_stat(long N, unsigned long *coverage, unsigned long *fragme
         (*r)=min_r;
 	(*exp_win_cov)=min_win_exp_cov;
 	(*win_cov)=min_win_cov;
-	}
         delete std_exp_cov;
 }
 void minimum_coverage_probability( 
@@ -384,7 +376,7 @@ void minimum_coverage_probability(
         }
         double res = 0;
         if(N>0 || bad_count==0){
-                res = cdf_multinomial_P(target_len,N,model->pI,model->EI);
+                res = 1.0-cdf_multinomial_P(target_len,N,model->pI,model->EI);
         }else{
                 res = -1;
         }
@@ -413,7 +405,7 @@ void calculate_transcript_shape_coverage(list<pair_t *> *plist, list<pair_t *> *
         calculate_coverage_counts(plist,raw_coverage,midpoint_counts,&mean_fragment,&counts,fragment_hist,target_len);
 
         double p=0.0;
-        long r=0;
+        long r=target_len;
         long start=0;
 	double win_exp_cov=0;
 	long win_cov=0;
@@ -423,11 +415,14 @@ void calculate_transcript_shape_coverage(list<pair_t *> *plist, list<pair_t *> *
 	double model_mcdf=0;
 	double coverage=0;
 	double exp_cov=0;
+	
+	if(counts>0){
 
-	minimum_coverage_probability( raw_coverage, fragment_hist, mean_fragment, counts, target_len, 
-		&total_nucs, &position, &model_bp, &model_mcdf, &coverage, &exp_cov, logout);
+		minimum_coverage_probability( raw_coverage, fragment_hist, mean_fragment, counts, target_len, 
+			&total_nucs, &position, &model_bp, &model_mcdf, &coverage, &exp_cov, logout);
 
-        fast_md_pt_scan_stat(target_len,raw_coverage,fragment_hist,counts,&p,&start,&r,&win_exp_cov,&win_cov, logout);
+	        fast_md_pt_scan_stat(target_len,midpoint_counts,fragment_hist,counts,&p,&start,&r,&win_exp_cov,&win_cov, logout);
+	}
 	//coverage_scan
         //cout << "len\tfrag_c\tmean_frag\ti\tr\tP(k,w)\n";
         cout << "\tT\t"<< target_len << "\tF\t" << counts << "\tav_f\t" << mean_fragment << "\tshape:\tx1\t" << start  << "\tr\t"<<r << "\tp\t" << p << "\twin_count\t" << win_cov << "\texp_count\t"<< win_exp_cov << "\tscale:\ttot_nuc\t"<< total_nucs<< "\tpos\t"<<position<<"\tcov\t"<<coverage<<"\texp(cov)\t"<<exp_cov<<"\tbin-p\t"<<model_bp<<"\tmcdf\t"<< model_mcdf<<"\n";
