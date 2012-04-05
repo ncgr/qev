@@ -17,6 +17,41 @@ using __gnu_cxx::hash;
 
 
 #define HIST_BUFFER 1000000
+
+void calculate_fragment_coverage(list<pair_t *> *plist, unsigned long *pcov, double *mean_insert, unsigned long * counts, unsigned int length){
+
+        pair_t *pair=NULL;
+
+        //process contig calculating paired insert coverage.
+        memset(pcov,0,sizeof(long)*length);
+        *mean_insert=0.0;
+        *counts=0;
+        //calculate coverage, and mean insert length.
+        for(  list<pair_t *>::iterator i=plist->begin(); i != plist->end(); ++i){
+                pair = *i;
+                if(pair->first && pair->second){
+                        unsigned int start, stop;
+                        calc_span(&start,&stop,pair);
+                        //alignments can go past the end of the read.
+                        start = (start <= 0)? 0 : start;
+                        stop = (stop >= length)? length-1 : stop;
+                        for(unsigned int count=start; count<=stop;count++){
+
+                                pcov[count]++;
+                        }
+                        //cout << stop - start + 1 << "\t" << start << "\t" << stop << "\n";
+                        (*mean_insert)+=(double)(stop - start + 1);
+                        (*counts)++;
+                }
+        }
+        if((*counts)>0.0){
+                (*mean_insert)/=(double)(*counts);
+        }
+
+}
+
+
+
 int length_hist(char *fname, unsigned long *hist, double **mean_mean_coverage, unsigned long **fragment_length_hists, double *mean_pair_length, list<long *> *properVsplit_list){
 	phash_t *pairs;
 	phash_t *bad_pairs;
@@ -139,11 +174,11 @@ int main(int argc, char *argv[])
 			cout << i << "\tcount\t" << hist[i] << "\tmpl\t" << mpl <<"\t" << mean_pair_length[i]<< "\n";
 			if(hist[i]>0){
 				for(int j=0;j<i;j++){
-					//double mean_mean;
-					//mean_mean =  mean_mean_coverage[i][j]/(double)hist[i];
-					//cout << j << " " << mean_mean << "\t";
+					double mean_mean;
+					mean_mean =  mean_mean_coverage[i][j]/(double)hist[i];
+					cout <<"mean_pcov\t" << j << " " << mean_mean << "\t";
 					unsigned long fragment_counts=fragment_hists[i][j];
-					cout  << i  << "\t" << j  << "\t" << fragment_counts << "\n";
+					cout  << "frag\t" << i  << "\t" << j  << "\t" << fragment_counts << "\n";
 				}
 			}
 		}

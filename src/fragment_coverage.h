@@ -17,4 +17,5 @@ double Fp(int k, double psi);
 
 double pois(int k, double psi);
 
-
+void calc_span(unsigned int *start, unsigned int *stop, pair_t *pair);
+void calculate_fragment_hist(list<pair_t *> *plist, unsigned long *fragment_hist, unsigned int length);

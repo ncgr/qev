@@ -377,6 +377,9 @@ void minimum_coverage_probability(
         double res = 0;
         if(N>0 || bad_count==0){
                 res = 1.0-cdf_multinomial_P(target_len,N,model->pI,model->EI);
+		if(res<0.0){// the approximation can have very small negative numbers, which will be interpretted as 0
+			res=0.0;
+		}
         }else{
                 res = -1;
         }
