@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([FULL-PACKAGE-NAME], [VERSION], [BUG-REPORT-ADDRESS])
-AC_CONFIG_SRCDIR([model.c])
+AC_INIT([QEV], [1.0.0], [jac@ncgr.org])
+AC_CONFIG_SRCDIR([qev.c])
 AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
@@ -11,15 +11,12 @@ AC_PROG_CC
 AC_PROG_CXX
 
 # Checks for libraries.
-# FIXME: Replace `main' with a function in `-lbam':
-AC_CHECK_LIB([bam], [main])
-# FIXME: Replace `main' with a function in `-lgsl':
-AC_CHECK_LIB([gsl], [main])
-# FIXME: Replace `main' with a function in `-lgslcblas':
+AC_CHECK_LIB([bam], [samopen])
+AC_CHECK_LIB([gsl], [gsl_cdf_poisson_P],[],[
+echo "No Gnu Scientific Libraries in standard location please use --with-gsl=/path/to/your/gsl/libraries/"
+exit -1])
 AC_CHECK_LIB([gslcblas], [main])
-# FIXME: Replace `main' with a function in `-lm':
-AC_CHECK_LIB([m], [main])
-# FIXME: Replace `main' with a function in `-lz':
+AC_CHECK_LIB([m], [exp])
 AC_CHECK_LIB([z], [main])
 
 # Checks for header files.
