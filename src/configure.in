@@ -12,13 +12,13 @@ AC_PROG_CXX
 
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lbam':
-AC_CHECK_LIB([bam], [bam_header_read], [],[echo "BWA)
+AC_CHECK_LIB([bam], [main])
 # FIXME: Replace `main' with a function in `-lgsl':
 AC_CHECK_LIB([gsl], [main])
 # FIXME: Replace `main' with a function in `-lgslcblas':
 AC_CHECK_LIB([gslcblas], [main])
 # FIXME: Replace `main' with a function in `-lm':
-AC_CHECK_LIB([m], [exp])
+AC_CHECK_LIB([m], [main])
 # FIXME: Replace `main' with a function in `-lz':
 AC_CHECK_LIB([z], [main])
 
