@@ -1,0 +1,30 @@
+SAMTOOLS_INC=/sw/compbio/samtools/build/samtools-0.1.16/
+GSL=/home/analysis/rsk/moore_anal/gsl
+SPARSEHASH=/home/linux/libs/sparsehash/1.11
+CFLAGS=-Wall -g -O3 
+LIBFLAGS=-lm -lz -lbam -lgsl -lgslcblas
+CLIB = -L${GSL}/lib -L${SPARSEHASH}/lib -L${SAMTOOLS_INC} 
+CINC=-I${SPARSEHASH}/include  -I${SAMTOOLS_INC} -I${GSL}/include
+
+all: qev bqev
+
+
+qev: multinomial.o model.o fragment_coverage.o bam_coverage.o
+	g++ ${CFLAGS}  ${CINC} ${CLIB} bam_coverage.o multinomial.o fragment_coverage.o model.o fgetopt.c qev.c -o qev ${LIBFLAGS}
+
+bqev: multinomial.o model.o fragment_coverage.o bam_coverage.o
+	 g++ ${CFLAGS}  ${CINC} ${CLIB}	bam_coverage.o multinomial.o fragment_coverage.o model.o fgetopt.c bqev.c -o bqev ${LIBFLAGS}
+
+
+multinomial.o:
+	g++ ${CFLAGS} ${CINC} -c multinomial.c
+
+model.o:
+	g++  ${CFLAGS} -c model.c
+fragment_coverage.o:
+	g++  ${CFLAGS}  ${CINC} -c fragment_coverage.c
+bam_coverage.o:
+	g++  ${CFLAGS}  ${CINC}  -Wall -c bam_coverage.c
+
+clean:
+	rm multinomial.o model.o fragment_coverage.o bam_coverage.o rm -fR ../bin
