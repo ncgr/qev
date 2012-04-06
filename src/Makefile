@@ -1,6 +1,13 @@
 
 all: qev
 
+
+install:
+	mkdir ../bin
+	mv qev ../bin
+	rm multinomial.o model.o fragment_coverage.o bam_coverage.o
+
+
 qev: multinomial.o model.o fragment_coverage.o bam_coverage.o
 	g++   -L/home/analysis/rsk/moore_anal/gsl/lib -lgsl -lgslcblas -lm -L/home/linux/libs/sparsehash/1.11/lib -I/home/linux/libs/sparsehash/1.11/include  -I/sw/compbio/samtools/build/samtools-0.1.16/ -g -O3 -Wall bam_coverage.o multinomial.o fragment_coverage.o model.o fgetopt.c qev.c -o qev -lz -L/sw/compbio/samtools/build/samtools-0.1.16/ -lbam
 
@@ -15,4 +22,4 @@ bam_coverage.o:
 	g++   -I/home/linux/libs/sparsehash/1.11/include  -I/sw/compbio/samtools/build/samtools-0.1.16/  -g -O3 -Wall -c bam_coverage.c
 
 clean:
-	rm multinomial.o model.o fragment_coverage.o bam_coverage.o qev
+	rm multinomial.o model.o fragment_coverage.o bam_coverage.o rm -fR ../bin
