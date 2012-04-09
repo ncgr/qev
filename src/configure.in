@@ -6,21 +6,87 @@ AC_INIT([QEV], [1.0.0], [jac@ncgr.org])
 AC_CONFIG_SRCDIR([qev.c])
 AC_CONFIG_HEADERS([config.h])
 
+AC_LANG([C++])
+
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
 
+AC_CHECK_HEADER([zlib.h])
+
+# Check for libraries
+AC_SEARCH_LIBS([gzopen],[z],,[AC_MSG_ERROR([libz not found, please install zlib (http://www.zlib.net/)])])
+
+
+# Check for the samtools library path
+AC_ARG_WITH(samtools, AS_HELP_STRING([--with-samtools=PATH],
+        [specify directory containing the samtools library (http://sourceforge.net/projects/samtools/files/)]))
+
+if test "$with_samtools" -a -d "$with_samtools"; then
+    samtools_include="-I$with_samtools"
+    samtools_ldflags="-L$with_samtools -lz -lbam"
+fi
+
+
+# Check for the google sparse hash
+AC_ARG_WITH(sparsehash, AS_HELP_STRING([--with-sparsehash=PATH],
+        [specify directory containing the google sparsehash headers http://code.google.com/p/google-sparsehash/)]))
+
+
+if test "$with_sparsehash" -a -d "$with_sparsehash"; then
+    sparsehash_include="-I$with_sparsehash/include"
+fi
+
+
+#Check for the GNU scientific library
+AC_ARG_WITH(gsl, AS_HELP_STRING([--with-gsl=PATH],
+        [specify directory containing the "GNU Scientific Library GSL" library (http://www.gnu.org/software/gsl/)]))
+
+if test "$with_gsl" -a -d "$with_gsl"; then
+    gsl_ldflags="-L$with_gsl/lib -lgsl -lgslcblas -Wl,-rpath=$with_gsl/lib"
+    gsl_include="-I$with_gsl/include"
+fi
+
+# Set compiler flags.
+AC_SUBST(AM_CXXFLAGS, "-Wall -Wextra -Werror")
+AC_SUBST(CXXFLAGS, "-O3")
+AC_SUBST(CFLAGS, "-O3")
+AC_SUBST(CXXFLAGS, "-g -O3 -Wall")
+AC_SUBST(CXXFLAGS, "$CXXFLAGS $sparsehash_include $samtools_include $gsl_include")
+AC_SUBST(LDFLAGS, "$samtools_ldflags $gsl_ldflags $LDFLAGS")
+
 # Checks for libraries.
-AC_CHECK_LIB([bam], [samopen])
+AC_CHECK_LIB([bam], [bam], [ 
+	echo "No samtools libraries please use --with-samtools=/path/to/your/samtools/src_directory" 
+	exit -1 ])
 AC_CHECK_LIB([gsl], [gsl_cdf_poisson_P],[],[
-echo "No Gnu Scientific Libraries in standard location please use --with-gsl=/path/to/your/gsl/libraries/"
-exit -1])
+	echo "No Gnu Scientific Libraries in standard location please use --with-gsl=/path/to/your/gsl/"
+	exit -1])
 AC_CHECK_LIB([gslcblas], [main])
+
+
 AC_CHECK_LIB([m], [exp])
-AC_CHECK_LIB([z], [main])
+AC_CHECK_LIB([z], [gzopen])
 
 # Checks for header files.
 AC_CHECK_HEADERS([string.h])
+
+
+# Ensure the sparse hash is available
+AC_CHECK_HEADERS([google/sparse_hash_map],,[AC_MSG_ERROR([google sparse hash library is required: http://code.google.com/p/google-sparsehash/])])
+# ensure samtools is available
+AC_CHECK_HEADERS([ \
+        bam.h \
+        sam.h \
+        faidx.h \
+],,[AC_MSG_ERROR([samtools is required: http://sourceforge.net/projects/samtools/files/])])
+AC_CHECK_HEADERS([ \
+	gsl/gsl_math.h \
+	gsl/gsl_errno.h \
+	gsl/gsl_cdf.h \
+	gsl/gsl_randist.h \
+],,[AC_MSG_ERROR([gnu scientific libraries are required: http://www.gnu.org/software/gsl/])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
