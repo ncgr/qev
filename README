@@ -31,19 +31,16 @@ Usage:
 	Running
 		Options are described qev's help error message.
 
-			qev
-
-
-				Options for this program include
-				    -h, -help, --help,           Print this message.
-				    -i, -bam, --bam,           required bam indexed bam file for input.
+Options for this program include
+    -h, --help,           Print this message.
+    -i, --bam,           required bam indexed bam file for input.
 
 
 
-				Optional arguments
-				    -f, -fasta, --fasta    generates output as a fasta, with a fasta file for sequence input
-				    -t, -transcript --transcript evaluates the quality for a single transcript
-				    -l, -log --log outputs additional log information
+    Optional arguments
+    -f, --fasta    generates output as a fasta, with a fasta file for sequence input
+    -t, --transcript evaluates the quality for a single transcript
+    -l, --log outputs additional log information
  
 
 
