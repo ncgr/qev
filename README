@@ -1,3 +1,95 @@
-Quality Evaluation (QEV) copyright Robin Kramer@NCGR all rights reserved.
+Quality Evaluation (QEV) copyright Robin Kramer and NCGR.
+Released under GNU Public License.
 
-C
+
+Install:
+
+	In the untarred directory type
+	configure
+	make 
+	make isntall
+
+	Most likely your will need to add the three packages: samtools, GNU Scientific Libraries and Google Sparse hash.
+
+
+Usage:
+
+	Input 
+		Paired end indexed Bam files are required.  The following script is an example of generateing the bam files.
+
+			bwa index transcriptome.fasta
+			bwa aln -f reads.1.sai transcriptome.fasta reads.1.fastq
+			bwa aln -f reads.2.sai transcriptome.fasta reads.2.fastq
+			bwa sampe -f reads.int transcriptome.fasta reads.1.sai reads.2.sai  reads.1.fastq reads.2.fastq
+			samtools view -bT transcriptome.fasta reads.int | samtools sort - reads
+			samtools index reads.bam
+
+		For using the fasta input option the fasta files need to be index also.
+
+
+
+	Running
+		Options are described qev's help error message.
+
+			qev
+
+
+				Options for this program include
+				    -h, -help, --help,           Print this message.
+				    -i, -bam, --bam,           required bam indexed bam file for input.
+
+
+
+				Optional arguments
+				    -f, -fasta, --fasta    generates output as a fasta, with a fasta file for sequence input
+				    -t, -transcript --transcript evaluates the quality for a single transcript
+				    -l, -log --log outputs additional log information
+ 
+
+
+
+	Output
+		The output is in this format.
+SRTC00002       T=237   F=44    av_f=99.8409    shape:  x1=92   r=108   p=0.000107613   win_count=15    exp_count=30.9721       scale:  tot_nuc=4393    pos=123 cov=17  exp(cov)=30.6323
+        bin-p=0.696188  mcdf=0.999886
+
+		The first column is the transcript name in this case SRTC00002.
+		T is the length of the transcript
+		F is the number of fragments used in the fragments quality scores.
+		av_f is the average length of the fragment used.
+		shape: All data associated with shape quality scores.
+		x1 is the first position of the minimum window.
+		r is the minimum window size.
+		win_count is the number of fragments with midpoints in the window.
+		exp_count is the expected number of fragments in the window.
+		scale: All data associated with the scale quality score.
+		tot_nuc: is the sum of all nucleotides observed in all fragments.
+		pos: is the position that is most likely to be less than observed.
+		cov: is the coverage at pos.
+		exp(cov): is the expected coverage at pos.
+		bin-p: is the binomial probability of observing that amount of cov at pos
+		mcdf: is the multinomial probability of observing any position as low as cov on the transcript.
+ 
+	Log files
+		The log files have information about the models that were used for the quality assement of the transcripts including coverages, expected coverages, counts and expected counts.
+
+		The data for each transcript is seperated by the transcripts name and and is labled by the type of value it is.
+		In the following example everything from >SRTC00001 to the the >SRTC00002 is associated with >SRTC00001.
+		The first column is the type of information model_E is the model coverage expectation.  The second column is the position for that expectation and the value at the position.
+
+		>SRTC00001
+		model_E 0       0.183672
+		model_E 1       0.367343
+
+		...
+		...
+		>SRTC00002
+		...
+
+		The types of information that are logged are as follows.
+		model_E is the expectations of coverage
+		pcov_P is the probablity of the coverage at the position.
+		cov has two colums the midpoint counts at the position and an expected rate at the position.
+
+
+
