@@ -34,23 +34,23 @@ int main(int argc, char *argv[])
    static struct option long_options[] =
         {
                         {"help",0,0,'h'},  //help 
-                        {0,0,0,'h'},	   //print help if no commands
                         {"bam", 1, 0, 'b'}, // the bam file for input required
                         {"fasta", 1, 0, 'f'},// the fasta file for input required
                         {"transcript", 1, 0, 't'}, // optional only get one transcript
                         {"log", 1, 0, 'l'}, // optional output log of the coverage
+			{0,0,0,'h'}       //print help if no commands ****this element of the array must be at the end.
         };
     char usageMessage[] =
     "\n\nOptions for this program include\n\
-    -h, -help, --help,           Print this message.\n\
-    -i, -bam, --bam,           required bam indexed bam file for input.\n\
+    -h, --help,           Print this message.\n\
+    -b, --bam,           required bam indexed bam file for input.\n\
 \n\
 \n\
 \n\
     Optional arguments \n\
-    -f, -fasta, --fasta    generates output as a fasta, with a fasta file for sequence input \n\
-    -t, -transcript --transcript evaluates the quality for a single transcript \n\
-    -l, -log --log outputs additional log information \n\n";
+    -f, --fasta    generates output as a fasta, with a fasta file for sequence input \n\
+    -t, --transcript evaluates the quality for a single transcript \n\
+    -l, --log outputs additional log information \n\n";
 
     int option_index=0;
     int optflag=0;
@@ -61,10 +61,9 @@ int main(int argc, char *argv[])
    
 
     while(  (optflag = fgetopt_long ( argc, argv , "b:f:t:l:h" , long_options , &option_index )) !=EOF ){
-    //  printf("Option %c Argument %s\n",optflag,optarg);
+       printf("Option %c Argument %s\n",optflag,optarg);
+	printf ("option %s\n", long_options[option_index].name);
         switch(optflag){
-
-                break;
         case 'b':
                 cerr << "Bam file -b " << optarg << "\n";
 		fp = bam_open(optarg, "rb");

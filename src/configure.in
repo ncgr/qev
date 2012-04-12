@@ -49,10 +49,10 @@ if test "$with_gsl" -a -d "$with_gsl"; then
 fi
 
 # Set compiler flags.
-AC_SUBST(AM_CXXFLAGS, "-Wall -Wextra -Werror")
+AC_SUBST(AM_CXXFLAGS, "-Wextra -Werror")
 AC_SUBST(CXXFLAGS, "-O3")
 AC_SUBST(CFLAGS, "-O3")
-AC_SUBST(CXXFLAGS, "-g -O3 -Wall")
+AC_SUBST(CXXFLAGS, "-g -O3 ")
 AC_SUBST(CXXFLAGS, "$CXXFLAGS $sparsehash_include $samtools_include $gsl_include")
 AC_SUBST(LDFLAGS, "$samtools_ldflags $gsl_ldflags $LDFLAGS")
 
