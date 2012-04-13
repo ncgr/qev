@@ -61,8 +61,8 @@ int main(int argc, char *argv[])
    
 
     while(  (optflag = fgetopt_long ( argc, argv , "b:f:t:l:h" , long_options , &option_index )) !=EOF ){
-       printf("Option %c Argument %s\n",optflag,optarg);
-	printf ("option %s\n", long_options[option_index].name);
+//       printf("Option %c Argument %s\n",optflag,optarg);
+//	printf ("option %s\n", long_options[option_index].name);
         switch(optflag){
         case 'b':
                 cerr << "Bam file -b " << optarg << "\n";
